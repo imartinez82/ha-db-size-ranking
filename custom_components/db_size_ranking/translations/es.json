@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DB Size Ranking",
+        "description": "Ranking de las entidades que más espacio ocupan en la base de datos del recorder.",
+        "data": {
+          "top_n": "Número de entidades en el ranking",
+          "daily_mode": "Periodo del ranking diario",
+          "daily_interval_minutes": "Actualizar ranking diario cada (minutos)",
+          "total_interval_hours": "Actualizar ranking total cada (horas)"
+        },
+        "data_description": {
+          "top_n": "Cuántas entidades se guardan en el atributo 'ranking' de los sensores.",
+          "total_interval_hours": "El ranking total recorre toda la base de datos; en bases grandes conviene no bajar de unas horas."
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Ya está configurado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DB Size Ranking",
+        "data": {
+          "top_n": "Número de entidades en el ranking",
+          "daily_mode": "Periodo del ranking diario",
+          "daily_interval_minutes": "Actualizar ranking diario cada (minutos)",
+          "total_interval_hours": "Actualizar ranking total cada (horas)"
+        },
+        "data_description": {
+          "top_n": "Cuántas entidades se guardan en el atributo 'ranking' de los sensores.",
+          "total_interval_hours": "El ranking total recorre toda la base de datos; en bases grandes conviene no bajar de unas horas."
+        }
+      }
+    }
+  },
+  "selector": {
+    "daily_mode": {
+      "options": {
+        "rolling_24h": "Últimas 24 horas",
+        "since_midnight": "Desde medianoche"
+      }
+    },
+    "period": {
+      "options": {
+        "daily": "Diario",
+        "total": "Todo el tiempo"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ranking_total": {
+        "name": "Ranking total"
+      },
+      "ranking_daily": {
+        "name": "Ranking diario"
+      },
+      "database_size": {
+        "name": "Tamaño base de datos"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Actualizar ranking",
+      "description": "Recalcula el ranking ahora.",
+      "fields": {
+        "period": {
+          "name": "Periodo",
+          "description": "Si se omite, se actualizan los dos."
+        }
+      }
+    },
+    "get_ranking": {
+      "name": "Obtener ranking",
+      "description": "Devuelve el ranking como respuesta (útil en scripts y en Herramientas para desarrolladores).",
+      "fields": {
+        "period": {
+          "name": "Periodo",
+          "description": "daily o total."
+        },
+        "top_n": {
+          "name": "Número de entidades",
+          "description": "Por defecto, el configurado."
+        }
+      }
+    }
+  }
+}

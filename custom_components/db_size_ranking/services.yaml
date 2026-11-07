@@ -1,0 +1,29 @@
+refresh:
+  fields:
+    period:
+      required: false
+      selector:
+        select:
+          options:
+            - daily
+            - total
+          translation_key: period
+
+get_ranking:
+  fields:
+    period:
+      required: false
+      default: total
+      selector:
+        select:
+          options:
+            - daily
+            - total
+          translation_key: period
+    top_n:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 5000
+          mode: box

@@ -1,0 +1,6 @@
+{
+  "services": {
+    "refresh": {"service": "mdi:database-refresh"},
+    "get_ranking": {"service": "mdi:format-list-numbered"}
+  }
+}

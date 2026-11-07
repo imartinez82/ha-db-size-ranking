@@ -1,0 +1,93 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "DB Size Ranking",
+        "description": "Ranking of the entities that use the most space in the recorder database.",
+        "data": {
+          "top_n": "Number of entities in the ranking",
+          "daily_mode": "Daily ranking period",
+          "daily_interval_minutes": "Update daily ranking every (minutes)",
+          "total_interval_hours": "Update total ranking every (hours)"
+        },
+        "data_description": {
+          "top_n": "How many entities are kept in the sensors' 'ranking' attribute.",
+          "total_interval_hours": "The total ranking scans the whole database; keep it at a few hours on large databases."
+        }
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "DB Size Ranking",
+        "data": {
+          "top_n": "Number of entities in the ranking",
+          "daily_mode": "Daily ranking period",
+          "daily_interval_minutes": "Update daily ranking every (minutes)",
+          "total_interval_hours": "Update total ranking every (hours)"
+        },
+        "data_description": {
+          "top_n": "How many entities are kept in the sensors' 'ranking' attribute.",
+          "total_interval_hours": "The total ranking scans the whole database; keep it at a few hours on large databases."
+        }
+      }
+    }
+  },
+  "selector": {
+    "daily_mode": {
+      "options": {
+        "rolling_24h": "Last 24 hours",
+        "since_midnight": "Since midnight"
+      }
+    },
+    "period": {
+      "options": {
+        "daily": "Daily",
+        "total": "All time"
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "ranking_total": {
+        "name": "Total ranking"
+      },
+      "ranking_daily": {
+        "name": "Daily ranking"
+      },
+      "database_size": {
+        "name": "Database size"
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh ranking",
+      "description": "Recalculates the ranking now.",
+      "fields": {
+        "period": {
+          "name": "Period",
+          "description": "If omitted, both are refreshed."
+        }
+      }
+    },
+    "get_ranking": {
+      "name": "Get ranking",
+      "description": "Returns the ranking as a response (useful in scripts and Developer tools).",
+      "fields": {
+        "period": {
+          "name": "Period",
+          "description": "daily or total."
+        },
+        "top_n": {
+          "name": "Number of entities",
+          "description": "Defaults to the configured value."
+        }
+      }
+    }
+  }
+}

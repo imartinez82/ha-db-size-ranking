@@ -299,3 +299,69 @@ async def test_markdown_card_template(recorder_mock: Recorder, hass: HomeAssista
     print(out)
     assert "sensor.borrar ⚠️" in out
     assert "| 1 |" in out
+
+
+async def test_device_ranking(recorder_mock: Recorder, hass: HomeAssistant) -> None:
+    """Las entidades se agrupan por dispositivo."""
+    from homeassistant.helpers import (
+        area_registry as ar,
+        device_registry as dr,
+        entity_registry as er,
+    )
+
+    source = MockConfigEntry(domain="test")
+    source.add_to_hass(hass)
+    dev_reg = dr.async_get(hass)
+    ent_reg = er.async_get(hass)
+    salon = ar.async_get(hass).async_create("Salón")
+
+    meteo = dev_reg.async_get_or_create(
+        config_entry_id=source.entry_id, identifiers={("test", "meteo")}, name="Estación"
+    )
+    dev_reg.async_update_device(meteo.id, area_id=salon.id, name_by_user="Meteo jardín")
+    enchufe = dev_reg.async_get_or_create(
+        config_entry_id=source.entry_id, identifiers={("test", "plug")}, name="Enchufe"
+    )
+    for uid, object_id, device in (
+        ("t", "temperatura", meteo),
+        ("h", "humedad", meteo),
+        ("p", "potencia", enchufe),
+    ):
+        ent_reg.async_get_or_create(
+            "sensor", "test", uid, suggested_object_id=object_id, device_id=device.id
+        )
+
+    await _write(hass, "sensor.temperatura", 60, big_attrs=True)
+    await _write(hass, "sensor.humedad", 60, big_attrs=True)
+    await _write(hass, "sensor.potencia", 80, big_attrs=True)
+    await _write(hass, "sensor.suelto", 10, big_attrs=False)
+    await async_wait_recording_done(hass)
+    await _setup(hass)
+
+    devices = hass.states.get("sensor.db_size_ranking_device_ranking_total")
+    daily = hass.states.get("sensor.db_size_ranking_device_ranking_daily")
+    assert devices is not None and daily is not None
+    ranking = devices.attributes["ranking"]
+    print("DEVICES", json.dumps(ranking, indent=1))
+
+    assert [d["name"] for d in ranking] == ["Meteo jardín", "Enchufe"]
+    assert devices.attributes["top_device"] == "Meteo jardín"
+    assert devices.attributes["device_count"] == 2
+    assert devices.attributes["no_device_entities"] >= 1  # sensor.suelto, etc.
+    meteo_entry = ranking[0]
+    assert meteo_entry["area"] == "Salón"
+    assert meteo_entry["entity_count"] == 2
+    assert meteo_entry["states"] == 120
+    assert {e["entity_id"] for e in meteo_entry["entities"]} == {
+        "sensor.temperatura",
+        "sensor.humedad",
+    }
+    assert round(sum(d["pct"] for d in ranking)) == 100
+    assert float(devices.state) == round(sum(d["bytes"] for d in ranking) / 1_048_576, 3)
+    assert [d["name"] for d in daily.attributes["ranking"]] == ["Meteo jardín", "Enchufe"]
+
+    resp = await hass.services.async_call(
+        DOMAIN, "get_ranking", {"period": "total", "top_n": 1},
+        blocking=True, return_response=True,
+    )
+    assert [d["name"] for d in resp["device_ranking"]] == ["Meteo jardín"]

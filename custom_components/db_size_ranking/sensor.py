@@ -35,6 +35,9 @@ _UNRECORDED = frozenset(
         "calibrated",
         "dialect",
         "tables_mb",
+        "device_count",
+        "no_device_mb",
+        "no_device_entities",
     }
 )
 
@@ -50,6 +53,8 @@ async def async_setup_entry(
         [
             RankingSensor(coordinators[PERIOD_TOTAL], entry),
             RankingSensor(coordinators[PERIOD_DAILY], entry),
+            DeviceRankingSensor(coordinators[PERIOD_TOTAL], entry),
+            DeviceRankingSensor(coordinators[PERIOD_DAILY], entry),
             DatabaseSizeSensor(coordinators[PERIOD_TOTAL], entry),
         ]
     )
@@ -110,6 +115,45 @@ class RankingSensor(_Base):
             "query_seconds": data["query_seconds"],
             "entity_count": data["entity_count"],
             "orphan_count": data["orphan_count"],
+            "top_n": data["top_n"],
+            "calibrated": data["calibration"]["calibrated"],
+            "ranking": ranking,
+        }
+
+
+class DeviceRankingSensor(_Base):
+    """Ranking de dispositivos de un periodo (suma de sus entidades)."""
+
+    def __init__(self, coordinator: RankingCoordinator, entry: DbRankingConfigEntry) -> None:
+        super().__init__(coordinator, entry)
+        self._attr_translation_key = f"device_ranking_{coordinator.period}"
+        self._attr_unique_id = f"{entry.entry_id}_device_ranking_{coordinator.period}"
+        self._attr_icon = (
+            "mdi:devices" if coordinator.period == PERIOD_TOTAL else "mdi:clock-outline"
+        )
+
+    @property
+    def native_value(self) -> float | None:
+        data = self.coordinator.data
+        if data is None:
+            return None
+        return round(data["device_total_bytes"] / 1_048_576, 3)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        data = self.coordinator.data
+        if data is None:
+            return None
+        ranking = data["device_ranking"]
+        return {
+            "top_device": ranking[0]["name"] if ranking else None,
+            "period": data["period"],
+            "daily_mode": data["daily_mode"],
+            "since": data["since"],
+            "updated": data["updated"],
+            "device_count": data["device_count"],
+            "no_device_mb": round(data["no_device_bytes"] / 1_048_576, 3),
+            "no_device_entities": data["no_device_entities"],
             "top_n": data["top_n"],
             "calibrated": data["calibration"]["calibrated"],
             "ranking": ranking,

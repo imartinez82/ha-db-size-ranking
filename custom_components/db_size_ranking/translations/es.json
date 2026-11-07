@@ -59,6 +59,12 @@
       "ranking_daily": {
         "name": "Ranking diario"
       },
+      "device_ranking_total": {
+        "name": "Ranking dispositivos total"
+      },
+      "device_ranking_daily": {
+        "name": "Ranking dispositivos diario"
+      },
       "database_size": {
         "name": "Tamaño base de datos"
       }

@@ -13,6 +13,11 @@ from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.util import session_scope
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import (
+    area_registry as ar,
+    device_registry as dr,
+    entity_registry as er,
+)
 from homeassistant.helpers.recorder import async_migration_in_progress
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -31,7 +36,14 @@ from .const import (
     PERIOD_DAILY,
     PERIOD_TOTAL,
 )
-from .db import Calibration, RawUsage, build_ranking, query_calibration, query_raw_usage
+from .db import (
+    Calibration,
+    DeviceRef,
+    RawUsage,
+    build_ranking,
+    query_calibration,
+    query_raw_usage,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -145,11 +157,39 @@ class RankingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         return self.build(self.top_n)
 
+    def _devices(self) -> dict[str, DeviceRef]:
+        """Relaciona cada entity_id con su dispositivo (y su área)."""
+        ent_reg = er.async_get(self.hass)
+        dev_reg = dr.async_get(self.hass)
+        area_reg = ar.async_get(self.hass)
+        refs: dict[str, DeviceRef] = {}
+        cache: dict[str, DeviceRef | None] = {}
+        for entity in ent_reg.entities.values():
+            if not entity.device_id:
+                continue
+            if entity.device_id not in cache:
+                device = dev_reg.async_get(entity.device_id)
+                if device is None:
+                    cache[entity.device_id] = None
+                else:
+                    area = area_reg.async_get_area(device.area_id) if device.area_id else None
+                    cache[entity.device_id] = DeviceRef(
+                        device_id=device.id,
+                        name=device.name_by_user or device.name,
+                        area=area.name if area else None,
+                    )
+            ref = cache[entity.device_id]
+            if ref is not None:
+                refs[entity.entity_id] = ref
+        return refs
+
     def build(self, top_n: int) -> dict[str, Any]:
         """Construye el ranking con los últimos datos leídos."""
         calibration = self.shared.calibration or Calibration()
         names = {state.entity_id: state.name for state in self.hass.states.async_all()}
-        result = build_ranking(self._last_usage, calibration, names, top_n)
+        result = build_ranking(
+            self._last_usage, calibration, names, top_n, self._devices()
+        )
         result.update(self._last_meta)
         result["top_n"] = top_n
         return result

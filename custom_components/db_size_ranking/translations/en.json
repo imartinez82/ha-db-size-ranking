@@ -59,6 +59,12 @@
       "ranking_daily": {
         "name": "Daily ranking"
       },
+      "device_ranking_total": {
+        "name": "Device ranking total"
+      },
+      "device_ranking_daily": {
+        "name": "Device ranking daily"
+      },
       "database_size": {
         "name": "Database size"
       }

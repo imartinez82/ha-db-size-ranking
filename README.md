@@ -31,11 +31,14 @@ Requiere Home Assistant 2025.2 o posterior.
 |---|---|---|
 | `sensor.db_size_ranking_ranking_total` | MiB atribuidos a entidades (histórico) | `ranking`, `top_entity`, `orphan_count` |
 | `sensor.db_size_ranking_ranking_diario` | MiB escritos en el periodo diario | `ranking`, `top_entity`, `since` |
+| `sensor.db_size_ranking_ranking_dispositivos_total` | MiB atribuidos a dispositivos (histórico) | `ranking` (dispositivos), `top_device` |
+| `sensor.db_size_ranking_ranking_dispositivos_diario` | MiB escritos por dispositivos en el periodo diario | `ranking` (dispositivos), `top_device` |
 | `sensor.db_size_ranking_tamano_base_de_datos` | Tamaño total de la base de datos | `tables_mb` (tamaño de cada tabla) |
 
 > Los `entity_id` exactos dependen del idioma de tu instalación; búscalos por
 > "DB Size Ranking" en Ajustes → Entidades. Con HA en inglés son
-> `sensor.db_size_ranking_total_ranking`, `..._daily_ranking` y `..._database_size`.
+> `sensor.db_size_ranking_total_ranking`, `..._daily_ranking`,
+> `..._device_ranking_total`, `..._device_ranking_daily` y `..._database_size`.
 
 Cada elemento del atributo `ranking` contiene:
 
@@ -48,6 +51,33 @@ Cada elemento del atributo `ranking` contiene:
 
 El atributo `ranking` **no se guarda en la base de datos** (no tendría sentido que
 el sensor que mide el espacio se pusiera a ocupar espacio).
+
+### Ranking de dispositivos
+
+Suma lo que ocupan todas las entidades de cada dispositivo. Cada elemento de su
+atributo `ranking` contiene:
+
+- `rank`, `device_id`, `name` (el nombre que le hayas puesto) y `area`
+- `bytes`, `mb`, `pct`, `pct_db`
+- `states`, `statistics` y el desglose `bytes_states`, `bytes_attributes`, `bytes_statistics`
+- `entity_count` y `entities`: sus 10 entidades que más ocupan (`entity_id`, `name`, `mb`)
+
+Las entidades que no pertenecen a ningún dispositivo (plantillas, `input_*`,
+huérfanas…) no entran en este ranking; su total aparece en los atributos
+`no_device_mb` y `no_device_entities`.
+
+Tarjeta Markdown de ejemplo:
+
+```yaml
+type: markdown
+content: |
+  {% set s = 'sensor.db_size_ranking_ranking_dispositivos_total' %}
+  | # | Dispositivo | Área | MiB | % |
+  |---|---|---|---|---|
+  {% for d in state_attr(s, 'ranking')[:15] -%}
+  | {{ d.rank }} | {{ d.name }} | {{ d.area or '' }} | {{ d.mb }} | {{ d.pct }} |
+  {% endfor %}
+```
 
 ## Cómo se calcula
 

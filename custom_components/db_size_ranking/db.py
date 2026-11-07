@@ -320,11 +320,91 @@ def _table_sizes(session: Session, dialect: str) -> tuple[dict[str, int], int | 
     return sizes, db_size
 
 
+@dataclass
+class DeviceRef:
+    """Dispositivo al que pertenece una entidad."""
+
+    device_id: str
+    name: str | None
+    area: str | None = None
+
+
+# Entidades que se listan dentro de cada dispositivo del ranking.
+DEVICE_TOP_ENTITIES = 10
+
+
+def build_device_ranking(
+    entries: list[dict[str, Any]],
+    devices: dict[str, DeviceRef],
+    db_size: int | None,
+    top_n: int,
+) -> dict[str, Any]:
+    """Agrupa el ranking de entidades por dispositivo (sólo tipos JSON).
+
+    ``entries`` es el ranking completo de entidades (sin recortar) y
+    ``devices`` relaciona cada entity_id con su dispositivo.
+    """
+    groups: dict[str, dict[str, Any]] = {}
+    no_device_bytes = 0
+    no_device_entities = 0
+    for entry in entries:
+        ref = devices.get(entry["entity_id"])
+        if ref is None:
+            no_device_bytes += entry["bytes"]
+            no_device_entities += 1
+            continue
+        group = groups.get(ref.device_id)
+        if group is None:
+            group = groups[ref.device_id] = {
+                "device_id": ref.device_id,
+                "name": ref.name,
+                "area": ref.area,
+                "bytes": 0,
+                "states": 0,
+                "statistics": 0,
+                "bytes_states": 0,
+                "bytes_attributes": 0,
+                "bytes_statistics": 0,
+                "entities": [],
+            }
+        group["bytes"] += entry["bytes"]
+        group["states"] += entry["states"]
+        group["statistics"] += entry["statistics"] + entry["statistics_short_term"]
+        group["bytes_states"] += entry["bytes_states"]
+        group["bytes_attributes"] += entry["bytes_attributes"]
+        group["bytes_statistics"] += entry["bytes_statistics"]
+        group["entities"].append(entry)
+
+    total_bytes = sum(g["bytes"] for g in groups.values())
+    ranking = sorted(groups.values(), key=lambda g: (-g["bytes"], g["name"] or ""))
+    for position, group in enumerate(ranking, start=1):
+        group["rank"] = position
+        group["mb"] = round(group["bytes"] / 1_048_576, 3)
+        group["pct"] = round(group["bytes"] * 100 / total_bytes, 2) if total_bytes else 0
+        if db_size:
+            group["pct_db"] = round(group["bytes"] * 100 / db_size, 2)
+        members = group.pop("entities")  # ya vienen ordenadas de mayor a menor
+        group["entity_count"] = len(members)
+        group["entities"] = [
+            {"entity_id": m["entity_id"], "name": m["name"], "mb": m["mb"]}
+            for m in members[:DEVICE_TOP_ENTITIES]
+        ]
+
+    return {
+        "device_total_bytes": round(total_bytes),
+        "device_count": len(ranking),
+        "no_device_bytes": round(no_device_bytes),
+        "no_device_entities": no_device_entities,
+        "device_ranking": ranking[:top_n],
+    }
+
+
 def build_ranking(
     usage: dict[str, RawUsage],
     calibration: Calibration,
     names: dict[str, str | None],
     top_n: int,
+    devices: dict[str, DeviceRef] | None = None,
 ) -> dict[str, Any]:
     """Convierte los contadores en el ranking final (sólo tipos JSON)."""
     entries: list[dict[str, Any]] = []
@@ -361,10 +441,14 @@ def build_ranking(
         if calibration.db_size:
             entry["pct_db"] = round(entry["bytes"] * 100 / calibration.db_size, 2)
 
-    return {
+    result = {
         "total_bytes": round(total_bytes),
         "entity_count": len(entries),
         "orphan_count": sum(1 for e in entries if not e["exists"]),
         "ranking": entries[:top_n],
         "calibration": asdict(calibration),
     }
+    result.update(
+        build_device_ranking(entries, devices or {}, calibration.db_size, top_n)
+    )
+    return result

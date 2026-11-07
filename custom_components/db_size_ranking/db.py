@@ -446,6 +446,16 @@ def build_ranking(
         "entity_count": len(entries),
         "orphan_count": sum(1 for e in entries if not e["exists"]),
         "ranking": entries[:top_n],
+        "orphans": [
+            {
+                "entity_id": e["entity_id"],
+                "mb": e["mb"],
+                "bytes": e["bytes"],
+                "statistics": e["statistics"] + e["statistics_short_term"],
+            }
+            for e in entries
+            if not e["exists"]
+        ],
         "calibration": asdict(calibration),
     }
     result.update(

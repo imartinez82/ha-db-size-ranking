@@ -37,6 +37,9 @@ La integración añade su propia página, **DB Size Ranking**, en la barra later
 - **Borrar seleccionadas** / **Borrar top N**: borran el historial y muestran
   cuánto se ha liberado.
 - **No registrar seleccionadas**: genera el YAML de exclusión para `configuration.yaml`.
+- **Huérfanas** (pulsa la tarjeta): borra todo lo guardado —historial y
+  estadísticas— de las entidades que ya no existen. Las entidades deshabilitadas
+  o que siguen en el registro no cuentan como huérfanas.
 - **Compactar** y **Recalcular**.
 
 ## Qué crea
@@ -121,6 +124,7 @@ Ajustes → Dispositivos y servicios → DB Size Ranking → Configurar:
 ## Servicios
 
 - `db_size_ranking.refresh` — recalcula ahora (`period: daily|total`, opcional).
+- `db_size_ranking.purge_orphans` — borra los datos de las entidades huérfanas.
 - `db_size_ranking.get_ranking` — devuelve el ranking como respuesta, con el
   `top_n` que quieras. Pruébalo en Herramientas para desarrolladores → Acciones:
 

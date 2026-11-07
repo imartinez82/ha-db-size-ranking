@@ -116,6 +116,10 @@
           "description": "Ranking used to choose the entities."
         }
       }
+    },
+    "purge_orphans": {
+      "name": "Purge orphaned entities",
+      "description": "Deletes everything stored (history and statistics) for entities that no longer exist in Home Assistant."
     }
   }
 }

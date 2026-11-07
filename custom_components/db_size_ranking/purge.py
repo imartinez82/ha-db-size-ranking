@@ -7,7 +7,7 @@ import logging
 from typing import Any
 
 from homeassistant.components import persistent_notification
-from homeassistant.components.recorder import DOMAIN as RECORDER_DOMAIN
+from homeassistant.components.recorder import DOMAIN as RECORDER_DOMAIN, get_instance
 from homeassistant.core import HassJob, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later
@@ -83,6 +83,65 @@ async def async_purge_top(
         notification_id=NOTIFICATION_ID,
     )
 
+    _schedule_refresh(hass, entry)
+    return {"purged": entity_ids, "bytes": round(freed)}
+
+
+async def async_purge_orphans(
+    hass: HomeAssistant, entry: DbRankingConfigEntry
+) -> dict[str, Any]:
+    """Borra todo lo guardado de las entidades que ya no existen.
+
+    Incluye sus estadísticas a largo plazo: la entidad ya no está en Home
+    Assistant, así que nadie las va a usar.
+    """
+    coordinator = entry.runtime_data.coordinators[PERIOD_TOTAL]
+    if coordinator.data is None:
+        await coordinator.async_refresh()
+    if coordinator.data is None:
+        return {"purged": [], "bytes": 0}
+
+    # build() vuelve a comprobar qué existe ahora mismo (estados y registro).
+    orphans = coordinator.build(1)["orphans"]
+    entity_ids = [o["entity_id"] for o in orphans]
+    with_stats = [o["entity_id"] for o in orphans if o["statistics"]]
+    freed = sum(o["bytes"] for o in orphans)
+
+    if entity_ids:
+        await hass.services.async_call(
+            RECORDER_DOMAIN,
+            "purge_entities",
+            {"entity_id": entity_ids, "keep_days": 0},
+            blocking=True,
+        )
+    if with_stats:
+        get_instance(hass).async_clear_statistics(with_stats)
+    _LOGGER.info(
+        "Borrados los datos de %d entidades huérfanas (~%.1f MiB)",
+        len(entity_ids),
+        freed / 1_048_576,
+    )
+
+    if entity_ids:
+        persistent_notification.async_create(
+            hass,
+            (
+                f"Se han borrado los datos de **{len(entity_ids)} entidades que ya no "
+                f"existen** (~{freed / 1_048_576:.1f} MiB), estadísticas incluidas. "
+                "En SQLite el archivo no encoge hasta que pulses **Compactar base "
+                "de datos**.\n\n"
+                + "\n".join(f"- `{o['entity_id']}` — {o['mb']:.2f} MiB" for o in orphans)
+            ),
+            title="DB Size Ranking: huérfanas borradas",
+            notification_id=NOTIFICATION_ID,
+        )
+    _schedule_refresh(hass, entry)
+    return {"purged": entity_ids, "bytes": round(freed)}
+
+
+def _schedule_refresh(hass: HomeAssistant, entry: DbRankingConfigEntry) -> None:
+    """Recalcula los rankings cuando el recorder haya terminado de borrar."""
+
     @callback
     def _refresh(_now: Any) -> None:
         for key in (PERIOD_TOTAL, PERIOD_DAILY):
@@ -95,7 +154,6 @@ async def async_purge_top(
     entry.async_on_unload(
         async_call_later(hass, REFRESH_DELAY, HassJob(_refresh, cancel_on_shutdown=True))
     )
-    return {"purged": entity_ids, "bytes": round(freed)}
 
 
 async def async_repack(hass: HomeAssistant) -> None:

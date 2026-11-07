@@ -8,6 +8,9 @@
     },
     "purge_top": {
       "service": "mdi:database-remove"
+    },
+    "purge_orphans": {
+      "service": "mdi:database-alert"
     }
   }
 }

@@ -451,3 +451,79 @@ async def test_panel(recorder_mock: Recorder, hass: HomeAssistant, hass_client) 
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert "db-size-ranking" not in hass.data[DATA_PANELS]
+
+
+async def test_purge_orphans(recorder_mock: Recorder, hass: HomeAssistant) -> None:
+    """Borra todo lo de las entidades que ya no existen, y sólo eso."""
+    from homeassistant.components.recorder.db_schema import States, StatesMeta
+    from homeassistant.components.recorder.models import StatisticMeanType
+    from homeassistant.components.recorder.statistics import (
+        async_import_statistics,
+        list_statistic_ids,
+    )
+    from homeassistant.helpers import entity_registry as er
+    from sqlalchemy import func
+
+    # Una entidad del registro deshabilitada (no tiene estado) NO es huérfana.
+    ent_reg = er.async_get(hass)
+    disabled = ent_reg.async_get_or_create(
+        "sensor", "test", "dis", suggested_object_id="deshabilitada",
+        disabled_by=er.RegistryEntryDisabler.USER,
+    )
+    hass.states.async_set(disabled.entity_id, "1")
+    await _write(hass, "sensor.viva", 10, big_attrs=False)
+    await _write(hass, "sensor.huerfana", 20, big_attrs=True)
+    await async_wait_recording_done(hass)
+    hass.states.async_remove("sensor.huerfana")
+    hass.states.async_remove(disabled.entity_id)
+    await hass.async_block_till_done()
+
+    # Estadísticas de la huérfana, que también deben desaparecer.
+    start = dt_util.utcnow().replace(minute=0, second=0, microsecond=0) - timedelta(hours=3)
+    async_import_statistics(
+        hass,
+        {
+            "mean_type": StatisticMeanType.ARITHMETIC,
+            "has_sum": False,
+            "name": None,
+            "source": "recorder",
+            "statistic_id": "sensor.huerfana",
+            "unit_class": None,
+            "unit_of_measurement": "W",
+        },
+        [{"start": start + timedelta(hours=i), "mean": i, "min": i, "max": i} for i in range(2)],
+    )
+    await async_wait_recording_done(hass)
+
+    await _setup(hass)
+    total = hass.states.get("sensor.db_size_ranking_total_ranking")
+    assert total.attributes["orphan_count"] == 1
+    ranked = {e["entity_id"]: e for e in total.attributes["ranking"]}
+    assert ranked[disabled.entity_id]["exists"] is True
+    assert ranked["sensor.huerfana"]["statistics"] == 2
+
+    resp = await hass.services.async_call(
+        DOMAIN, "purge_orphans", {}, blocking=True, return_response=True
+    )
+    assert resp["purged"] == ["sensor.huerfana"]
+    assert resp["bytes"] > 0
+    await async_wait_recording_done(hass)
+    await async_wait_recording_done(hass)
+
+    def _counts() -> dict[str, int]:
+        with session_scope(hass=hass, read_only=True) as session:
+            return dict(
+                session.execute(
+                    select(StatesMeta.entity_id, func.count())
+                    .join(States, States.metadata_id == StatesMeta.metadata_id)
+                    .group_by(StatesMeta.entity_id)
+                ).all()
+            )
+
+    after = await get_instance(hass).async_add_executor_job(_counts)
+    assert "sensor.huerfana" not in after
+    assert after["sensor.viva"] == 10
+    assert disabled.entity_id in after
+
+    stat_ids = await get_instance(hass).async_add_executor_job(list_statistic_ids, hass)
+    assert "sensor.huerfana" not in {s["statistic_id"] for s in stat_ids}

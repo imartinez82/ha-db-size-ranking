@@ -186,7 +186,16 @@ class RankingCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def build(self, top_n: int) -> dict[str, Any]:
         """Construye el ranking con los últimos datos leídos."""
         calibration = self.shared.calibration or Calibration()
-        names = {state.entity_id: state.name for state in self.hass.states.async_all()}
+        # Una entidad existe si tiene estado o está en el registro (aunque esté
+        # deshabilitada o su integración aún no haya cargado): sólo las demás
+        # se consideran huérfanas.
+        names: dict[str, str | None] = {
+            entity.entity_id: entity.name or entity.original_name
+            for entity in er.async_get(self.hass).entities.values()
+        }
+        names.update(
+            {state.entity_id: state.name for state in self.hass.states.async_all()}
+        )
         result = build_ranking(
             self._last_usage, calibration, names, top_n, self._devices()
         )

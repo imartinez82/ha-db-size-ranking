@@ -27,12 +27,13 @@ from .const import (
     PERIODS,
     DEFAULT_PURGE_COUNT,
     SERVICE_GET_RANKING,
+    SERVICE_PURGE_ORPHANS,
     SERVICE_PURGE_TOP,
     SERVICE_REFRESH,
 )
 from .coordinator import DbRankingConfigEntry, RankingCoordinator, RuntimeData, SharedState
 from .panel import async_register_panel, async_unregister_panel
-from .purge import async_purge_top
+from .purge import async_purge_orphans, async_purge_top
 
 PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
 
@@ -95,6 +96,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             hass, entry, call.data[ATTR_TOP_N], call.data[ATTR_PERIOD]
         )
 
+    async def _purge_orphans(call: ServiceCall) -> ServiceResponse:
+        return await async_purge_orphans(hass, _get_entry(hass))
+
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, _refresh, REFRESH_SCHEMA)
     hass.services.async_register(
         DOMAIN,
@@ -108,6 +112,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         SERVICE_PURGE_TOP,
         _purge_top,
         PURGE_TOP_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PURGE_ORPHANS,
+        _purge_orphans,
+        vol.Schema({}),
         supports_response=SupportsResponse.OPTIONAL,
     )
     return True

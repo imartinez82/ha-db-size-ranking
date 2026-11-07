@@ -47,3 +47,5 @@ purge_top:
             - daily
             - total
           translation_key: period
+
+purge_orphans:

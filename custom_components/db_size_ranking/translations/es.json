@@ -116,6 +116,10 @@
           "description": "Ranking que se usa para elegir las entidades."
         }
       }
+    },
+    "purge_orphans": {
+      "name": "Borrar huérfanas",
+      "description": "Borra todo lo guardado (historial y estadísticas) de las entidades que ya no existen en Home Assistant."
     }
   }
 }

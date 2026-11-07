@@ -137,6 +137,31 @@ class DbSizeRankingPanel extends HTMLElement {
     });
   }
 
+  _purgeOrphans() {
+    const orphans = this._data?.orphans ?? [];
+    if (!orphans.length) return;
+    const freed = orphans.reduce((s, o) => s + o.bytes, 0);
+    const list = orphans.slice(0, 15).map((o) => `• ${o.entity_id} (${o.mb.toFixed(2)} MiB)`).join("\n");
+    const more = orphans.length > 15 ? `\n… y ${orphans.length - 15} más` : "";
+    if (!confirm(
+      `¿Borrar todo lo guardado de ${orphans.length} entidades que ya no existen (~${mib(freed)} MiB)?\n\n` +
+      `${list}${more}\n\nSe borran también sus estadísticas. No se puede deshacer.`
+    )) return;
+    this._run("Borrando entidades huérfanas…", async () => {
+      const res = await this._call(DOMAIN, "purge_orphans", {}, true);
+      const purged = new Set(res.purged);
+      this._data.ranking = this._data.ranking.filter((e) => !purged.has(e.entity_id));
+      this._data.orphans = [];
+      this._data.orphan_count = 0;
+      this._message = {
+        kind: "ok",
+        text: `Borrados los datos de ${res.purged.length} entidades huérfanas (~${mib(res.bytes)} MiB). ` +
+          "El ranking se recalculará en un minuto. Pulsa «Compactar» para que el archivo encoja.",
+      };
+      this._scheduleReload();
+    });
+  }
+
   _repack() {
     if (!confirm(
       "¿Compactar la base de datos?\n\nPuede tardar varios minutos en bases grandes; " +
@@ -229,7 +254,10 @@ class DbSizeRankingPanel extends HTMLElement {
           <div class="stat"><div class="label">Base de datos</div><div class="value">${dbSize ? mib(dbSize) + " MiB" : "—"}</div></div>
           <div class="stat"><div class="label">${this._period === "total" ? "Ocupado por entidades" : "Escrito en 24 h"}</div><div class="value">${d ? mib(d.total_bytes) + " MiB" : "—"}</div></div>
           <div class="stat"><div class="label">Entidades</div><div class="value">${d ? d.entity_count : "—"}</div></div>
-          <div class="stat"><div class="label">Huérfanas</div><div class="value">${d ? d.orphan_count : "—"}</div></div>
+          <button class="stat orphans ${d?.orphan_count ? "active" : ""}" id="orphans" ${d?.orphan_count && !this._busy ? "" : "disabled"}>
+            <div class="label">Huérfanas${d?.orphan_count ? " · pulsa para borrar" : ""}</div>
+            <div class="value">${d ? d.orphan_count : "—"}${d?.orphans?.length ? ` <small>(${mib(d.orphans.reduce((s, o) => s + o.bytes, 0))} MiB)</small>` : ""}</div>
+          </button>
         </div>
 
         <div class="card">
@@ -316,6 +344,7 @@ class DbSizeRankingPanel extends HTMLElement {
           bubbles: true, composed: true, detail: { entityId: a.dataset.more },
         }));
       }));
+    $("#orphans")?.addEventListener("click", () => this._purgeOrphans());
     $("#purge-sel").addEventListener("click", () => this._purgeSelected());
     $("#purge-top").addEventListener("click", () => this._purgeTop());
     $("#yaml").addEventListener("click", () => this._exclusionYaml());
@@ -340,6 +369,11 @@ const STYLE = `
   .stat, .card { background: var(--card-background-color, #fff); border-radius: var(--ha-card-border-radius, 12px);
     box-shadow: var(--ha-card-box-shadow, none); border: 1px solid var(--divider-color); }
   .stat { padding: 12px 16px; }
+  button.stat, button.stat:disabled { text-align: left; font: inherit; color: inherit; cursor: default; opacity: 1; }
+  button.stat.active { cursor: pointer; border-color: var(--warning-color, #ff9800); }
+  button.stat.active:hover { background: rgba(255, 152, 0, .08); }
+  button.stat.active .value { color: var(--warning-color, #ff9800); }
+  .stat small { font-size: 13px; color: var(--secondary-text-color); }
   .stat .label { font-size: 13px; color: var(--secondary-text-color); }
   .stat .value { font-size: 22px; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .card { padding: 16px; }

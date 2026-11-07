@@ -25,6 +25,20 @@ Requiere Home Assistant 2025.2 o posterior.
 2. Reinicia Home Assistant.
 3. Ajustes → Dispositivos y servicios → Añadir integración → **DB Size Ranking**.
 
+## Página de la integración
+
+La integración añade su propia página, **DB Size Ranking**, en la barra lateral
+(sólo para administradores). También se abre desde la página del dispositivo
+(botón **Visitar**). En ella tienes:
+
+- Tamaño de la base de datos, espacio ocupado por entidades y nº de huérfanas.
+- La tabla del ranking (total o últimas 24 h, 25/50/100/200 filas), con barra de
+  tamaño y aviso en las entidades que ya no existen.
+- **Borrar seleccionadas** / **Borrar top N**: borran el historial y muestran
+  cuánto se ha liberado.
+- **No registrar seleccionadas**: genera el YAML de exclusión para `configuration.yaml`.
+- **Compactar** y **Recalcular**.
+
 ## Qué crea
 
 | Entidad | Estado | Atributos principales |

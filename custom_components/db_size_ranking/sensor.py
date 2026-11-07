@@ -75,6 +75,7 @@ class _Base(CoordinatorEntity[RankingCoordinator], SensorEntity):
             name="DB Size Ranking",
             manufacturer="DB Size Ranking",
             entry_type=DeviceEntryType.SERVICE,
+            configuration_url="homeassistant://db-size-ranking",
         )
 
     @property

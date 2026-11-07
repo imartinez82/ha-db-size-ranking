@@ -35,6 +35,7 @@ class _Base(ButtonEntity):
             name="DB Size Ranking",
             manufacturer="DB Size Ranking",
             entry_type=DeviceEntryType.SERVICE,
+            configuration_url="homeassistant://db-size-ranking",
         )
 
 

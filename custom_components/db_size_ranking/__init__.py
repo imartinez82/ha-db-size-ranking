@@ -31,6 +31,7 @@ from .const import (
     SERVICE_REFRESH,
 )
 from .coordinator import DbRankingConfigEntry, RankingCoordinator, RuntimeData, SharedState
+from .panel import async_register_panel, async_unregister_panel
 from .purge import async_purge_top
 
 PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
@@ -121,6 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: DbRankingConfigEntry) ->
     entry.runtime_data = RuntimeData(shared=shared, coordinators=coordinators)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    await async_register_panel(hass)
 
     async def _initial_refresh() -> None:
         # Primero el total (calcula la calibración) y luego el diario.
@@ -145,4 +147,7 @@ async def _async_reload(hass: HomeAssistant, entry: DbRankingConfigEntry) -> Non
 
 async def async_unload_entry(hass: HomeAssistant, entry: DbRankingConfigEntry) -> bool:
     """Descarga la integración."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        async_unregister_panel(hass)
+    return unloaded

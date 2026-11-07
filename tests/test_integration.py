@@ -423,3 +423,31 @@ async def test_purge_top_button(recorder_mock: Recorder, hass: HomeAssistant) ->
         "button", "press",
         {"entity_id": "button.db_size_ranking_compact_database"}, blocking=True,
     )
+
+
+async def test_panel(recorder_mock: Recorder, hass: HomeAssistant, hass_client) -> None:
+    """La página propia se registra, se sirve y desaparece al descargar."""
+    from homeassistant.components.frontend import DATA_PANELS
+    from homeassistant.helpers import device_registry as dr
+
+    await _write(hass, "sensor.x", 3, big_attrs=False)
+    await async_wait_recording_done(hass)
+    entry = await _setup(hass)
+
+    panel = hass.data[DATA_PANELS]["db-size-ranking"]
+    assert panel.require_admin is True
+    assert panel.sidebar_title == "DB Size Ranking"
+    custom = panel.config["_panel_custom"]
+    assert custom["name"] == "db-size-ranking-panel"
+    assert panel.config_panel_domain == DOMAIN
+
+    client = await hass_client()
+    resp = await client.get(custom["module_url"])
+    assert resp.status == 200
+    assert 'customElements.define("db-size-ranking-panel"' in await resp.text()
+
+    device = next(iter(dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)))
+    assert device.configuration_url == "homeassistant://db-size-ranking"
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert "db-size-ranking" not in hass.data[DATA_PANELS]

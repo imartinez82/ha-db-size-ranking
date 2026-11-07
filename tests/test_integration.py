@@ -365,3 +365,61 @@ async def test_device_ranking(recorder_mock: Recorder, hass: HomeAssistant) -> N
         blocking=True, return_response=True,
     )
     assert [d["name"] for d in resp["device_ranking"]] == ["Meteo jardín"]
+
+
+async def test_purge_top_button(recorder_mock: Recorder, hass: HomeAssistant) -> None:
+    """El botón borra el historial de las entidades de cabeza del ranking."""
+    from homeassistant.components.recorder.db_schema import States, StatesMeta
+    from sqlalchemy import func
+
+    await _write(hass, "sensor.grande", 80, big_attrs=True)
+    await _write(hass, "sensor.mediano", 40, big_attrs=False)
+    await _write(hass, "sensor.pequeno", 3, big_attrs=False)
+    await async_wait_recording_done(hass)
+    await _setup(hass)
+
+    def _counts() -> dict[str, int]:
+        with session_scope(hass=hass, read_only=True) as session:
+            return dict(
+                session.execute(
+                    select(StatesMeta.entity_id, func.count())
+                    .join(States, States.metadata_id == StatesMeta.metadata_id)
+                    .group_by(StatesMeta.entity_id)
+                ).all()
+            )
+
+    before = await get_instance(hass).async_add_executor_job(_counts)
+    assert before["sensor.grande"] == 80
+
+    button = hass.states.get("button.db_size_ranking_purge_history_of_top_50")
+    assert button is not None
+    # Sólo las 2 primeras, para comprobar que respeta el número.
+    resp = await hass.services.async_call(
+        DOMAIN, "purge_top", {"top_n": 2}, blocking=True, return_response=True
+    )
+    assert resp["purged"] == ["sensor.grande", "sensor.mediano"]
+    assert resp["bytes"] > 0
+    await async_wait_recording_done(hass)
+    await async_wait_recording_done(hass)
+
+    after = await get_instance(hass).async_add_executor_job(_counts)
+    assert "sensor.grande" not in after
+    assert "sensor.mediano" not in after
+    assert after["sensor.pequeno"] == 3
+
+    # El botón usa el top 50: ahora borra lo que queda.
+    await hass.services.async_call(
+        "button", "press", {"entity_id": button.entity_id}, blocking=True
+    )
+    await async_wait_recording_done(hass)
+    await async_wait_recording_done(hass)
+    after = await get_instance(hass).async_add_executor_job(_counts)
+    assert "sensor.pequeno" not in after
+    # Los sensores de la propia integración no se borran a sí mismos.
+    assert any(k.startswith("sensor.db_size_ranking") for k in after)
+
+    # Compactar no falla.
+    await hass.services.async_call(
+        "button", "press",
+        {"entity_id": "button.db_size_ranking_compact_database"}, blocking=True,
+    )

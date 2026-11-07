@@ -1,6 +1,13 @@
 {
   "services": {
-    "refresh": {"service": "mdi:database-refresh"},
-    "get_ranking": {"service": "mdi:format-list-numbered"}
+    "refresh": {
+      "service": "mdi:database-refresh"
+    },
+    "get_ranking": {
+      "service": "mdi:format-list-numbered"
+    },
+    "purge_top": {
+      "service": "mdi:database-remove"
+    }
   }
 }

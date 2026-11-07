@@ -38,6 +38,9 @@ ATTR_THRESHOLD_WINDOW: Final = 5000
 
 SERVICE_REFRESH: Final = "refresh"
 SERVICE_GET_RANKING: Final = "get_ranking"
+SERVICE_PURGE_TOP: Final = "purge_top"
+
+DEFAULT_PURGE_COUNT: Final = 50
 
 ATTR_PERIOD: Final = "period"
 ATTR_TOP_N: Final = "top_n"

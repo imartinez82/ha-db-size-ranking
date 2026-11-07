@@ -68,6 +68,14 @@
       "database_size": {
         "name": "Database size"
       }
+    },
+    "button": {
+      "purge_top": {
+        "name": "Purge history of top 50"
+      },
+      "repack": {
+        "name": "Compact database"
+      }
     }
   },
   "services": {
@@ -92,6 +100,20 @@
         "top_n": {
           "name": "Number of entities",
           "description": "Defaults to the configured value."
+        }
+      }
+    },
+    "purge_top": {
+      "name": "Purge top entities",
+      "description": "Deletes the recorded history (states) of the entities that use the most space. Long-term statistics are kept.",
+      "fields": {
+        "top_n": {
+          "name": "Number of entities",
+          "description": "How many entities from the top of the ranking."
+        },
+        "period": {
+          "name": "Period",
+          "description": "Ranking used to choose the entities."
         }
       }
     }

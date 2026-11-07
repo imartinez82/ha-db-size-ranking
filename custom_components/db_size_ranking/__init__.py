@@ -25,12 +25,15 @@ from .const import (
     PERIOD_DAILY,
     PERIOD_TOTAL,
     PERIODS,
+    DEFAULT_PURGE_COUNT,
     SERVICE_GET_RANKING,
+    SERVICE_PURGE_TOP,
     SERVICE_REFRESH,
 )
 from .coordinator import DbRankingConfigEntry, RankingCoordinator, RuntimeData, SharedState
+from .purge import async_purge_top
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.BUTTON, Platform.SENSOR]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -41,6 +44,16 @@ GET_RANKING_SCHEMA = vol.Schema(
         vol.Optional(ATTR_TOP_N): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=100000)
         ),
+    }
+)
+
+
+PURGE_TOP_SCHEMA = vol.Schema(
+    {
+        vol.Optional(ATTR_TOP_N, default=DEFAULT_PURGE_COUNT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=1000)
+        ),
+        vol.Optional(ATTR_PERIOD, default=PERIOD_TOTAL): vol.In(PERIODS),
     }
 )
 
@@ -75,6 +88,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         top_n = call.data.get(ATTR_TOP_N, coordinator.top_n)
         return coordinator.build(top_n)
 
+    async def _purge_top(call: ServiceCall) -> ServiceResponse:
+        entry = _get_entry(hass)
+        return await async_purge_top(
+            hass, entry, call.data[ATTR_TOP_N], call.data[ATTR_PERIOD]
+        )
+
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, _refresh, REFRESH_SCHEMA)
     hass.services.async_register(
         DOMAIN,
@@ -82,6 +101,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         _get_ranking,
         GET_RANKING_SCHEMA,
         supports_response=SupportsResponse.ONLY,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PURGE_TOP,
+        _purge_top,
+        PURGE_TOP_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
     )
     return True
 

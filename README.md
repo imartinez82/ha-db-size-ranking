@@ -139,6 +139,43 @@ content: >
 
 Para el diario, duplica la tarjeta con `sensor.db_size_ranking_ranking_diario`.
 
+## Botones de borrado
+
+La integración crea dos botones (en la página del dispositivo **DB Size Ranking**):
+
+- **Borrar historial del top 50**: borra el historial (estados y atributos) de
+  las 50 entidades que más ocupan según el ranking total. Las **estadísticas a
+  largo plazo se conservan**, así que el panel de Energía y las gráficas de medias
+  no se pierden. Al terminar aparece una notificación con la lista de lo borrado,
+  y el ranking se recalcula al minuto.
+- **Compactar base de datos**: ejecuta `recorder.purge` con `repack: true` para
+  que el archivo encoja de verdad (en SQLite, sin esto no baja de tamaño).
+
+El borrado no se puede deshacer y el botón no pide confirmación. Para tenerlo en
+el panel con confirmación:
+
+```yaml
+type: button
+name: Borrar historial top 50
+icon: mdi:database-remove
+entity: button.db_size_ranking_borrar_historial_del_top_50
+tap_action:
+  action: toggle
+  confirmation:
+    text: ¿Borrar el historial de las 50 entidades que más ocupan?
+```
+
+También como acción, con el número que quieras:
+
+```yaml
+action: db_size_ranking.purge_top
+data:
+  top_n: 20
+```
+
+Ojo: borrar no impide que vuelvan a llenarse. Para eso, exclúyelas del recorder
+(siguiente apartado).
+
 ## Qué hacer con el resultado
 
 Cuando veas una entidad que ocupa mucho y no necesitas su historial, exclúyela

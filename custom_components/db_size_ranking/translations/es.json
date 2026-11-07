@@ -68,6 +68,14 @@
       "database_size": {
         "name": "Tamaño base de datos"
       }
+    },
+    "button": {
+      "purge_top": {
+        "name": "Borrar historial del top 50"
+      },
+      "repack": {
+        "name": "Compactar base de datos"
+      }
     }
   },
   "services": {
@@ -92,6 +100,20 @@
         "top_n": {
           "name": "Número de entidades",
           "description": "Por defecto, el configurado."
+        }
+      }
+    },
+    "purge_top": {
+      "name": "Borrar las que más ocupan",
+      "description": "Borra el historial (estados) de las entidades que más espacio ocupan. Las estadísticas a largo plazo se conservan.",
+      "fields": {
+        "top_n": {
+          "name": "Número de entidades",
+          "description": "Cuántas entidades de la cabeza del ranking."
+        },
+        "period": {
+          "name": "Periodo",
+          "description": "Ranking que se usa para elegir las entidades."
         }
       }
     }
